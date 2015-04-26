@@ -1,0 +1,254 @@
+#!/usr/bin/perl -w
+use utf8;
+# modified file from vistdep2malt which output a xml. This conll version output a column value format
+# use: cat file.dep | visldep2conll > file.conll
+
+### output conll
+#
+#Field number:  Field name: Description:
+#
+#1  ID  Token counter, starting at 1 for each new sentence.
+#2  FORM    Word form or punctuation symbol.
+#3  LEMMA   Lemma or stem (depending on particular data set) of word form, or an underscore if not available.
+#4  CPOSTAG Coarse-grained part-of-speech tag, where tagset depends on the language.
+#5  POSTAG  Fine-grained part-of-speech tag, where the tagset depends on the language, or identical to the coarse-grained part-of-speech tag if not available.
+#6  FEATS   Unordered set of syntactic and/or morphological features (depending on the particular language), separated by a vertical bar (|), or an underscore if not available.
+#7  HEAD    Head of the current token, which is either a value of ID or zero ('0'). Note that depending on the original treebank annotation, there may be multiple tokens with an ID of zero.
+#8  DEPREL  Dependency relation to the HEAD. The set of dependency relations depends on the particular language. Note that depending on the original treebank annotation, the dependency relation may be meaningfull or simply 'ROOT'.
+#9  PHEAD   Projective head of current token, which is either a value of ID or zero ('0'), or an underscore if not available. Note that depending on the original treebank annotation, there may be multiple tokens an with ID of zero. The dependency structure resulting from the PHEAD column is guaranteed to be projective (but is not available for all languages), whereas the structures resulting from the HEAD column will be non-projective for some sentences of some languages (but is always available).
+#10 PDEPREL Dependency relation to the PHEAD, or an underscore if not available. The set of dependency relations depends on the particular language. Note that depending on the original treebank annotation, the dependency relation may be meaningfull or simply 'ROOT'.
+
+
+$|=1;
+
+while (<>) {
+
+#    s/[ \t]+\#.*//g;
+    s/ &[A-Za-z\-]+//g;
+    s/( \@.+)+ \@/ \@/;
+    s/  +/ /g;
+    s/Æ/</g;
+    s/Ø/>/g;
+    s/^\#.*\n//;
+
+    if (m/^(.*?) *\t ?\[(.*?)\]( +(<.*?> +)*)([A-Z0-9n \/]+? +).*?\@(.*?) +[\#=]([0-9]+?)(->|:)([0-9]+)/) {
+	
+### assign fields
+	
+	$wordform =$1;
+	$base =$2;
+	$extra =$3;
+	$posmorf =$5;
+	$syn =$6;
+	$id =$7;
+	$head =$9;
+
+	$wordform =~ s/^\$//;
+	$wordform =~ s/=/_/g;
+	$base =~ s/=/_/g;
+	$extra =~ s/^ +//; $extra =~ s/ +$//; $extra =~ s/[<>]//g; $extra =~ s/  +/ /g;
+	$posmorf =~ m/^([A-Z]+) +(.+)?$/; 
+	$pos =$1; 
+	if ($2) {$morf =$2;}
+	else {$morf ="";}
+	$morf =~ s/^ +//; $morf =~ s/ +$//;
+#	$syn =~ s/</\«/g;
+#	$syn =~ s/>/\»/g;
+
+	if ($extra eq "") {$extra = "--";}
+	if ($pos eq "") {$pos = "--";}
+	if ($posmorf eq "") {$posmorf = "--";}
+	if ($morf eq "") {$morf = "--";}
+	if ($syn eq "") {$syn = "--";}
+
+#create cg2visl tags
+
+ 	$pos =~ s/^(.*)$/\L$1/;
+ 	$pos =~ s/kc/conj-c/;
+ 	$pos =~ s/ks/conj-s/;
+# 	$pos =~ s/^(indp|pers|det)$/pron/g;
+# 	$pos =~ s/^(indp|pers|det)$/pron-$1/g;
+
+	if ($extra) {
+	  if ($extra =~ /poss/) {$pos =~ s/^(indp|pers|det)$/pron-poss/g;}
+	  if ($extra =~ /rel/) {$pos =~ s/^(indp|pers|det)$/pron-rel/g;}
+	  if ($extra =~ /interr/) {$pos =~ s/^(indp|pers|det)$/pron-int/g;}
+	  if ($extra =~ /dem/) {$pos =~ s/^(indp|pers|det)$/pron-dem/g;}
+	}
+	$pos =~ s/^(pers)$/pron-pers/g;
+	$pos =~ s/^(indp|pers|det)$/pron-indef/g; # <quant>, restkategori, også <diff>
+	if ($morf =~ s/(INF|GER|PCP[12]) *//) {$submorf =$1; $pos =~ s/^v/v-\L$submorf/;} 
+	else {$pos =~ s/^v$/v-fin/;}
+
+ 	$pos =~ s/^in$/intj/g;
+
+	$syn =~ s/^(FAUX|FMV)/FS-STA/;
+	$syn =~ s/^(IAUX|IMV)/ICL-UTT/;
+	$syn =~ s/^ICL-AUX</Oaux/;
+	$syn =~ s/^ICL->AUX/Oaux/;
+	$syn =~ s/^(FS|ICL|AS)\-//;
+	$syn =~ s/^ADVL>A/fA/g;
+	$syn =~ s/^F-<*SUBJ>*/Sf/g;
+	$syn =~ s/^S-<*SUBJ>*/Ss/g;
+	$syn =~ s/^<*SUBJ>*/S/g;
+	$syn =~ s/^<*ACC(-PASS)?>*/Od/g;
+	$syn =~ s/F-<?ACC>?/Of/g;
+	$syn =~ s/^<*DAT>*/Oi/g;
+	$syn =~ s/^<*PIV>*/Op/g;
+	$syn =~ s/^<*SA>*/As/g;
+	$syn =~ s/^<*OA>*/Ao/g;
+	$syn =~ s/^VO[CK]/fCvoc/g; # vocative adjunct
+	$syn =~ s/^<*SC>*/Cs/g;
+#	$syn =~ s/^FOC>/Dfoc/g;
+	$syn =~ s/^FOC>/DC/g;
+	$syn =~ s/^<*OC>*/Co/g;
+	$syn =~ s/^<*ADVL>*/fA/g;
+	$syn =~ s/^<*ADV>*/A/g;
+	$syn =~ s/^<*PASS/fApass/g;
+	$syn =~ s/^TOP/fAtop/g;
+	$syn =~ s/^N<PRED/DNc/g;
+	$syn =~ s/^<*PRED>*/fCs/g;
+	$syn =~ s/^APP/DNapp/g;
+	$syn =~ s/^N<FUSE/DNfuse/g;
+	$syn =~ s/^>N/DN/g;
+	$syn =~ s/^N<+/DN/g;
+	$syn =~ s/^>AS/Dfoc/g;
+	$syn =~ s/^>A/DA/g;
+	$syn =~ s/^A<+/DA/g;
+	$syn =~ s/^KOMP</DAcom/g;
+	$syn =~ s/^P</DP/g;
+	$syn =~ s/^>>P/DP/g;
+	if (/ (DIR|<adir>) /) {$syn =~ s/^>P/DPmod/g;}
+	else {$syn =~ s/^>P/DA/;}
+	$syn =~ s/^PRT-AUX</SUBaux/g;
+	$syn =~ s/^PRD/SUBprd/g;
+	$syn =~ s/^COM(adv|conj|prp)/SUBcom$1/g;
+	$syn =~ s/^AS<[A-Z]*/DCarg/g; # argument of complementizer (clause body)
+	$syn =~ s/^S</fCsta/g;
+	$syn =~ s/^>S/fCsta/g;
+	$syn =~ s/^CMD/COM/g;
+	$syn =~ s/^MV</Vpart/g;
+#	$syn =~ s/pu/PU/; # ???
+	$syn =~ s/^NPHR/X/g;
+	$syn =~ s/>>A/DA/g;
+	if($extra =~ m/foc/){
+	    $syn = "Dfoc";  
+	}
+
+### add CJT
+#	if (! $syn) {$syn ="XXX";}
+	$func{$id} =$syn;
+	if ($extra =~ m/co-([a-z]+)/ || $syn =~ /CO/ && ! ($extra =~ /adv/)) {
+	    $cotype =$1;
+	    if (! $cotype) {$cotype ="co";}
+
+	    $cotype =~ s/prparg/DP/;
+	    $cotype =~ s/(pre|post)nom/DN/;
+	    $cotype =~ s/(pre|post)ad/DA/;
+	    $cotype =~ s/subj/S/;
+	    $cotype =~ s/acc/Od/;
+	    $cotype =~ s/dat/Oi/;
+	    $cotype =~ s/piv/Op/;
+	    $cotype =~ s/advl/fA/;
+	    $cotype =~ s/sc/Cs/;
+	    $cotype =~ s/oc/Co/;
+	    $cotype =~ s/sa/As/;
+	    $cotype =~ s/oa/Ao/;
+
+	    $cjt{$head} =$cotype;
+	}
+#	if ($func{$head}) {push (@print, "\n******id=$id syn=$syn head=$head func(head)=$func{$head}\n");}
+#	if ($cjt{$head}) {push (@print, "******cjt(head)=$cjt{$head}\n");}
+
+	$utt = " UTT STA QUE EXC COM ";
+	if ($func{$head} && $func{$head} eq $syn && $cjt{$head} && ($syn =~ /^$cjt{$head}/ || $pos =~ /v-$cjt{$head}/) || $utt =~ / $syn / && $func{$head} && $utt =~ / $func{$head} / || $extra =~ /cjt/) {
+	    $syn = "CJT";
+	}
+
+	$extra =~ s/cjt *//g;
+
+	print "$id";
+    print "\t";
+	print "$wordform";
+    print "\t";
+	if ($base) {
+        print "$base";
+    }
+    else{
+        print "_";
+    }
+    print "\t";
+	if ($pos) {
+        print "$pos";
+    }
+    else{
+        print "_";
+    }
+    print "\t";
+	if ($pos) {
+        print "$pos";
+    }
+    else{
+        print "_";
+    }
+    print "\t";
+	if ($morf and $morf ne  "--") {
+	    print "$morf";
+	}
+    else{
+        print "_";
+    }
+    print "\t";
+    print "$head";
+    print "\t";
+    print "$syn";
+    print "\t";
+    print "_";
+    print "\t";
+    print "_";
+    print "\n";
+    }
+
+### punctuation
+
+    elsif (/^\$/) {
+	m/^\$(.*?)[ \t]+\#([0-9]+?)->([0-9]+)/;
+	$wordform =$1;
+	$id =$2;
+	$head =$3;
+	$wordform =~ s/\"/\&quot\;/g;
+	print "$id";
+    print "\t";
+	print "$wordform";
+    print "\t";
+    print "_";
+    print "\t";
+    print "pu";
+    print "\t";
+    print "pu";
+    print "\t";
+    print "_";
+    print "\t";
+    print "$head";
+    print "\t";
+    print "PU";
+    print "\t";
+    print "_";
+    print "\t";
+    print "_";
+    print "\n";
+    }
+
+### sentence boundaries
+
+    elsif (/(id|ID)=\"(.*?)\"/ || /^<.*(id|ID)=\"?(.*?)\"?>/) {
+	if ($wordform) {
+	    print "<\/sentence>\n\n"; # sentence-end
+	}
+	print "<sentence id=$2>\n"; # sentence-start
+    }
+
+    elsif (! /^<\/?([sp]|it)>/) {print;}
+
+}
+
