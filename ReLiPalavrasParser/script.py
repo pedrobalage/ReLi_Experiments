@@ -25,7 +25,6 @@ from __future__ import division
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import with_statement
-from __future__ import unicode_literals
 
 # imports
 import os
@@ -35,10 +34,13 @@ import codecs
 import unicodedata
 
 # variables
-CORPUS_PATH = 'corpus_teste/'
+CORPUS_PATH = 'corpus/'
 CORPUS_OUTPUT_PATH = 'corpus_PALAVRAS/'
 PALAVRAS_CMD = ['/opt/palavras/por.pl']
 PALAVRAS_POS_CMD = ['/opt/palavras/bin/visldep2conll']
+
+# logfile
+logfile = codecs.open('logfile.txt','w',encoding = 'utf-8')
 
 def process_sentence(sentence):
 
@@ -84,12 +86,14 @@ def process_sentence(sentence):
             continue
 
         values = line.split('\t')
-        if len(values) != 10:
-            print ('Error processing PALAVRAS, line doesnt have 10 values: \n{0}\n'.format(line))
-            print (line.replace('\t','\n'))
+        if len(values) == 10:
+            id,word,lemma,cpostag,postag,feats,head,deprel,phead,pdeprel = values
+        elif len(values) == 11:
+            id,word,lemma,cpostag,postag,feats,head,deprel,extrasem,phead,pdeprel = values
+        else:
+            logfile.write('Error processing PALAVRAS, line doesnt have 10 values: \n{0}\n'.format(line))
             continue
 
-        id,word,lemma,cpostag,postag,feats,head,deprel,phead,pdeprel = values
 
         # some semantic tags come with the word
         if '<' in word:
@@ -103,9 +107,15 @@ def process_sentence(sentence):
             output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
             continue
 
-        obj = sentence[i+j]['obj'].replace('O','_')
-        opinion = sentence[i+j]['opinion'].replace('O','_')
-        pol = sentence[i+j]['pol'].replace('O','_')
+        obj = sentence[i+j]['obj']
+        if obj == 'O':
+            obj = '_'
+        opinion = sentence[i+j]['opinion']
+        if opinion == 'O':
+            opinion = '_'
+        pol = sentence[i+j]['pol']
+        if pol == 'O':
+            pol = '_'
 
         #########################################################################
         ######## map tokenization between the input and the output       ########
@@ -144,56 +154,55 @@ def process_sentence(sentence):
                     output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
                     continue
 
-        # PALAVRAS split a token in two
-        if sentence[i+j]['word'].startswith(word):
-            if i+1 < len(lines) :
-                next_line = lines[i+1].strip()
-                if next_line != '':
-                    next_word = lines[i+1].strip().split('\t')
-                    if len(next_word) >= 2:
-                        collocation = word + next_word[1]
-                        if collocation == 'dea':
-                            collocation = 'da'
-                        if collocation == 'deo':
-                            collocation = 'do'
-                        if collocation == 'emaquela':
-                            collocation = 'naquela'
-                        if collocation == 'emaquele':
-                            collocation = 'naquele'
-                        if collocation == 'emos':
-                            collocation = 'nos'
-                        if collocation == 'emas':
-                            collocation = 'nas'
-                        if sentence[i+j]['word'] == collocation:
-                            shift = -1
-                            j += shift
-                            i+=1
-                            output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
-                            continue
-                else:
-                    # in case there is a blank line between the tokens
-                    if i+2 < len(lines) :
-                        next_line = lines[i+2].strip()
-                        if next_line != '':
-                            next_word = lines[i+2].strip().split('\t')
-                            if len(next_word) >= 2:
-                                collocation = word + next_word[1]
-                                if sentence[i+j]['word'] == collocation:
-                                    shift = -2
-                                    j += shift
-                                    i+=2
-                                    output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
-                                    continue
+        # PALAVRAS split a token in two and contractions
+        if i+1 < len(lines):
+            next_line = lines[i+1].strip()
+            if next_line != '':
+                next_word = lines[i+1].strip().split('\t')
+                if len(next_word) >= 2:
+                    collocation = word + next_word[1]
+                    if collocation == 'dea':
+                        collocation = 'da'
+                    if collocation == 'deo':
+                        collocation = 'do'
+                    if collocation == 'emaquela':
+                        collocation = 'naquela'
+                    if collocation == 'emaquele':
+                        collocation = 'naquele'
+                    if collocation == 'emos':
+                        collocation = 'nos'
+                    if collocation == 'emas':
+                        collocation = 'nas'
+                    if sentence[i+j]['word'] == collocation:
+                        shift = -1
+                        j += shift
+                        i+=1
+                        output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
+                        continue
+            else:
+                # in case there is a blank line between the tokens
+                if i+2 < len(lines):
+                    next_line = lines[i+2].strip()
+                    if next_line != '':
+                        next_word = lines[i+2].strip().split('\t')
+                        if len(next_word) >= 2:
+                            collocation = word + next_word[1]
+                            if sentence[i+j]['word'] == collocation:
+                                shift = -2
+                                j += shift
+                                i+=2
+                                output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
+                                continue
 
         # PALAVRAS split a token in three
         if sentence[i+j]['word'].startswith(word):
-            if i+1 < len(lines) :
+            if i+1 < len(lines):
                 next_line = lines[i+1].strip()
                 if next_line != '':
                     next_word = lines[i+1].strip().split('\t')
                     if len(next_word) >= 2:
                         collocation = word + next_word[1]
-                        if i+2 < len(lines) :
+                        if i+2 < len(lines):
                             next_line = lines[i+2].strip()
                             if next_line != '':
                                 next_word = lines[i+2].strip().split('\t')
@@ -206,8 +215,18 @@ def process_sentence(sentence):
                                         output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
                                         continue
 
+        # PALAVRAS change symbom ' to `
+        if word == sentence[i+j]['word'].replace('\'','`'):
+            output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
+            continue
+
         # PALAVRAS remove dialog introduction symbol '-'
         if word == sentence[i+j]['word'].replace('-',''):
+            output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
+            continue
+
+        # PALAVRAS symbol ' from the word:
+        if word == sentence[i+j]['word'].replace('\'',''):
             output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
             continue
 
@@ -218,15 +237,30 @@ def process_sentence(sentence):
             output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
             continue
 
+        # Unknown match, but next words match, so continue...
+        if i+1 < len(lines) :
+            next_line = lines[i+1].strip()
+            if next_line != '':
+                next_word = lines[i+1].strip().split('\t')
+                if len(next_word) >= 2:
+                    next_word = next_word[1]
+                    if i+j+1 < len(sentence):
+                        next_word_ReLi = sentence[i+j+1]
+                        if next_word == next_word_ReLi:
+                            output_string += '\t'.join([id,word,lemma,cpostag,postag,feats,obj,opinion,pol,head,deprel,phead,pdeprel]) + '\n'
+                            continue
 
         # I dont know the problem
-        print ('Mismatch from PALAVRAS word "{0}" with ReLi word "{1}" in the sentence:\n\t{2}\n\noutput:\n{3}'.format(word,sentence[i+j]['word'],sentence_string,output))
+        logfile.write('Mismatch from PALAVRAS word "{0}" with ReLi word "{1}" in the sentence:\n\t{2}\n\noutput:\n{3}'.format(word,sentence[i+j]['word'],sentence_string,output))
         return ''
 
     return output_string
 
 # List all the files under the directory
 corpus_files = os.listdir(CORPUS_PATH)
+
+discarted_sentences = 0
+processed_sentences = 0
 
 # Read each file and process
 for filename in corpus_files:
@@ -251,10 +285,12 @@ for filename in corpus_files:
                 if len(sentence) != 0:
                     output = process_sentence(sentence)
                     if output == '':
-                        print ('Error processing PALAVRAS, output null,  line {0} from {1}\n'.format(line_num,filename))
-                    output_file.write(output)
+                        logfile.write('Error processing PALAVRAS, line {0} from {1}\n'.format(line_num,filename))
+                        discarted_sentences += 1
+                    else:
+                        processed_sentences += 1
+                        output_file.write(output)
                     sentence = []
-                output_file.write(line)
 
             # Find the elements in each line (word, pos, object, opinion, polarity, help).
             else:
@@ -269,10 +305,15 @@ for filename in corpus_files:
                                     'pol':pol,
                                     'help':help} )
                 else:
-                    print ('Line {0} from {1} has not 6 features, values: {2}\n'.format(line_num,filename,line))
+                    logfile.write('Line {0} from {1} has not 6 features, values: {2}\n'.format(line_num,filename,line))
                     continue
 
         # Match the EOF, last sentence boundary
         if len(sentence) != 0:
             output = process_sentence(sentence)
             output_file.write(output)
+            processed_sentences += 1
+
+        logfile.write('\nSummary:\n\n')
+        logfile.write('Processed Sentences: {0}\n'.format(processed_sentences))
+        logfile.write('Discarted Sentences: {0}\n'.format(discarted_sentences))
