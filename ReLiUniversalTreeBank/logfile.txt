@@ -1,0 +1,36 @@
+
+Summary:
+
+Processed Sentences: 1161
+Discarted Sentences: 0
+
+Summary:
+
+Processed Sentences: 2074
+Discarted Sentences: 0
+Error processing, line 11546 from ReLi-Sheldon.txt
+
+Summary:
+
+Processed Sentences: 3650
+Discarted Sentences: 1
+
+Summary:
+
+Processed Sentences: 6938
+Discarted Sentences: 1
+
+Summary:
+
+Processed Sentences: 9170
+Discarted Sentences: 1
+
+Summary:
+
+Processed Sentences: 11162
+Discarted Sentences: 1
+
+Summary:
+
+Processed Sentences: 12510
+Discarted Sentences: 1
