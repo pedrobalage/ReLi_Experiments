@@ -36,151 +36,8 @@ from nltk.corpus.reader.util import *
 from nltk.corpus.reader.api import *
 
 
-# Class to provide data and methods to read ReLi corpus
-class ReLiCorpusReader(CorpusReader):
-    """
-    A corpus reader for ReLi files (CONLL Style).
-    """
-    #/////////////////////////////////////////////////////////////////
-    # Column Types
-    #/////////////////////////////////////////////////////////////////
 
-    WORDS = 'words'
-    POS = 'pos'
-    OBJ = 'obj'
-    OPINION = 'opinion'
-    POLARITY = 'polarity'
-    HELP = 'help'
-
-    COLUMN_TYPES = (WORDS, POS, OBJ, OPINION, POLARITY, HELP)
-
-    #/////////////////////////////////////////////////////////////////
-    # Constructor
-    #/////////////////////////////////////////////////////////////////
-
-    def __init__(self, root, fileids, encoding='utf8'):
-        columntypes = ['words','pos','obj','opinion','polarity','help']
-        self._colmap = dict((c,i) for (i,c) in enumerate(columntypes))
-        CorpusReader.__init__(self, root, fileids, encoding)
-        '''
-        livro
-        resenha
-        nota
-        titulo
-        corpo
-        '''
-
-    #/////////////////////////////////////////////////////////////////
-    # Data Access Methods
-    #/////////////////////////////////////////////////////////////////
-
-    def raw(self, fileids=None):
-        if fileids is None: fileids = self._fileids
-        elif isinstance(fileids, compat.string_types): fileids = [fileids]
-        return concat([self.open(f).read() for f in fileids])
-
-    def words(self, fileids=None):
-        self._require(self.WORDS)
-        return LazyConcatenation(LazyMap(self._get_words, self._grids(fileids)))
-
-    def sents(self, fileids=None):
-        self._require(self.WORDS)
-        return LazyMap(self._get_words, self._grids(fileids))
-
-    def tagged_words(self, fileids=None, tagset=None):
-        self._require(self.WORDS, self.POS)
-        def get_tagged_words(grid):
-            return self._get_tagged_words(grid, tagset)
-        return LazyConcatenation(LazyMap(get_tagged_words,
-                                         self._grids(fileids)))
-
-    def tagged_sents(self, fileids=None, tagset=None):
-        self._require(self.WORDS, self.POS)
-        def get_tagged_words(grid):
-            return self._get_tagged_words(grid, tagset)
-        return LazyMap(get_tagged_words, self._grids(fileids))
-
-
-
-    #/////////////////////////////////////////////////////////////////
-    # Grid Reading
-    #/////////////////////////////////////////////////////////////////
-
-
-    def read_blankline_block(self,stream):
-        s = ''
-        while True:
-            line = stream.readline()
-            # End of file:
-            if not line:
-                if s: return [s]
-                else: return []
-            # Blank line:
-            elif line.strip() == '' or line.startswith('#') or line.startswith('[features'):
-                if s: return [s]
-            # Other line:
-            else:
-                s += line
-
-    def _grids(self, fileids=None):
-        # n.b.: we could cache the object returned here (keyed on
-        # fileids), which would let us reuse the same corpus view for
-        # different things (eg srl and parse trees).
-        return concat([StreamBackedCorpusView(fileid, self._read_grid_block,
-                                              encoding=enc)
-                       for (fileid, enc) in self.abspaths(fileids, True)])
-
-    def _read_grid_block(self, stream):
-        grids = []
-        for block in self.read_blankline_block(stream):
-            block = block.strip()
-            if not block: continue
-
-            grid = [line.split() for line in block.split('\n')]
-
-            # If there's a docstart row, then discard. ([xx] eventually it
-            # would be good to actually use it)
-            if grid[0][self._colmap.get('words', 0)] == '-DOCSTART-':
-                del grid[0]
-
-            # Check that the grid is consistent.
-            for row in grid:
-                if len(row) != len(grid[0]):
-                    raise ValueError('Inconsistent number of columns:\n%s'
-                                     % block)
-            grids.append(grid)
-        return grids
-
-    #/////////////////////////////////////////////////////////////////
-    # Transforms
-    #/////////////////////////////////////////////////////////////////
-    # given a grid, transform it into some representation (e.g.,
-    # a list of words or a parse tree).
-
-    def _get_words(self, grid):
-        return self._get_column(grid, self._colmap['words'])
-
-    def _get_tagged_words(self, grid, tagset=None):
-        pos_tags = self._get_column(grid, self._colmap['pos'])
-        if tagset and tagset != self._tagset:
-            pos_tags = [map_tag(self._tagset, tagset, t) for t in pos_tags]
-        return list(zip(self._get_column(grid, self._colmap['words']), pos_tags))
-
-    #/////////////////////////////////////////////////////////////////
-    # Helper Methods
-    #/////////////////////////////////////////////////////////////////
-
-    def _require(self, *columntypes):
-        for columntype in columntypes:
-            if columntype not in self._colmap:
-                raise ValueError('This corpus does not contain a %s '
-                                 'column.' % columntype)
-
-    @staticmethod
-    def _get_column(grid, column_index):
-        return [grid[i][column_index] for i in range(len(grid))]
-
-class OldCorpusReader(dict):
+class ReLiCorpusReader(dict):
 
     # Constructor
     # returns a dictionary containing the corpus
@@ -942,3 +799,149 @@ class OldCorpusReader(dict):
 
                 handle = codecs.open(output_path+filename[:-3]+'html','w','utf-8')
                 handle.write(html)
+
+
+
+# Class to provide data and methods to read ReLi corpus
+class ReLiCorpusReaderNLTK(CorpusReader):
+    """
+    A corpus reader for ReLi files (CONLL Style).
+    """
+    #/////////////////////////////////////////////////////////////////
+    # Column Types
+    #/////////////////////////////////////////////////////////////////
+
+    WORDS = 'words'
+    POS = 'pos'
+    OBJ = 'obj'
+    OPINION = 'opinion'
+    POLARITY = 'polarity'
+    HELP = 'help'
+
+    COLUMN_TYPES = (WORDS, POS, OBJ, OPINION, POLARITY, HELP)
+
+    #/////////////////////////////////////////////////////////////////
+    # Constructor
+    #/////////////////////////////////////////////////////////////////
+
+    def __init__(self, root, fileids, encoding='utf8'):
+        columntypes = ['words','pos','obj','opinion','polarity','help']
+        self._colmap = dict((c,i) for (i,c) in enumerate(columntypes))
+        CorpusReader.__init__(self, root, fileids, encoding)
+        '''
+        livro
+        resenha
+        nota
+        titulo
+        corpo
+        '''
+
+    #/////////////////////////////////////////////////////////////////
+    # Data Access Methods
+    #/////////////////////////////////////////////////////////////////
+
+    def raw(self, fileids=None):
+        if fileids is None: fileids = self._fileids
+        elif isinstance(fileids, compat.string_types): fileids = [fileids]
+        return concat([self.open(f).read() for f in fileids])
+
+    def words(self, fileids=None):
+        self._require(self.WORDS)
+        return LazyConcatenation(LazyMap(self._get_words, self._grids(fileids)))
+
+    def sents(self, fileids=None):
+        self._require(self.WORDS)
+        return LazyMap(self._get_words, self._grids(fileids))
+
+    def tagged_words(self, fileids=None, tagset=None):
+        self._require(self.WORDS, self.POS)
+        def get_tagged_words(grid):
+            return self._get_tagged_words(grid, tagset)
+        return LazyConcatenation(LazyMap(get_tagged_words,
+                                         self._grids(fileids)))
+
+    def tagged_sents(self, fileids=None, tagset=None):
+        self._require(self.WORDS, self.POS)
+        def get_tagged_words(grid):
+            return self._get_tagged_words(grid, tagset)
+        return LazyMap(get_tagged_words, self._grids(fileids))
+
+
+
+    #/////////////////////////////////////////////////////////////////
+    # Grid Reading
+    #/////////////////////////////////////////////////////////////////
+
+
+    def read_blankline_block(self,stream):
+        s = ''
+        while True:
+            line = stream.readline()
+            # End of file:
+            if not line:
+                if s: return [s]
+                else: return []
+            # Blank line:
+            elif line.strip() == '' or line.startswith('#') or line.startswith('[features'):
+                if s: return [s]
+            # Other line:
+            else:
+                s += line
+
+    def _grids(self, fileids=None):
+        # n.b.: we could cache the object returned here (keyed on
+        # fileids), which would let us reuse the same corpus view for
+        # different things (eg srl and parse trees).
+        return concat([StreamBackedCorpusView(fileid, self._read_grid_block,
+                                              encoding=enc)
+                       for (fileid, enc) in self.abspaths(fileids, True)])
+
+    def _read_grid_block(self, stream):
+        grids = []
+        for block in self.read_blankline_block(stream):
+            block = block.strip()
+            if not block: continue
+
+            grid = [line.split() for line in block.split('\n')]
+
+            # If there's a docstart row, then discard. ([xx] eventually it
+            # would be good to actually use it)
+            if grid[0][self._colmap.get('words', 0)] == '-DOCSTART-':
+                del grid[0]
+
+            # Check that the grid is consistent.
+            for row in grid:
+                if len(row) != len(grid[0]):
+                    raise ValueError('Inconsistent number of columns:\n%s'
+                                     % block)
+            grids.append(grid)
+        return grids
+
+    #/////////////////////////////////////////////////////////////////
+    # Transforms
+    #/////////////////////////////////////////////////////////////////
+    # given a grid, transform it into some representation (e.g.,
+    # a list of words or a parse tree).
+
+    def _get_words(self, grid):
+        return self._get_column(grid, self._colmap['words'])
+
+    def _get_tagged_words(self, grid, tagset=None):
+        pos_tags = self._get_column(grid, self._colmap['pos'])
+        if tagset and tagset != self._tagset:
+            pos_tags = [map_tag(self._tagset, tagset, t) for t in pos_tags]
+        return list(zip(self._get_column(grid, self._colmap['words']), pos_tags))
+
+    #/////////////////////////////////////////////////////////////////
+    # Helper Methods
+    #/////////////////////////////////////////////////////////////////
+
+    def _require(self, *columntypes):
+        for columntype in columntypes:
+            if columntype not in self._colmap:
+                raise ValueError('This corpus does not contain a %s '
+                                 'column.' % columntype)
+
+    @staticmethod
+    def _get_column(grid, column_index):
+        return [grid[i][column_index] for i in range(len(grid))]
